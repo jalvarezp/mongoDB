@@ -1,55 +1,117 @@
-var express = require("express");
-var mongojs = require("mongojs");
-var request = require("request");
-var cheerio = require("cheerio");
-var app = express();
-var databaseUrl = "scraper";
-var collections = ["scrapedData"];
+// = Requirements ================================================================
+	var express = require('express');
+	var app = express();
+	var bodyParser = require('body-parser');
+	var logger = require('morgan');
+	var mongoose = require('mongoose');
+	var request = require('request');
+	var cheerio = require('cheerio');
 
+// = Middleware (pass everything through the logger first) ================================================
+	app.use(logger('dev'));
+	app.use(bodyParser.urlencoded({
+		extended: false
+	}));
+	app.use(express.static('public')); // (create a public folder and land there)
 
-var db = mongojs(databaseUrl, collections);
-db.on("error", function(error) {
-  console.log("Database Error:", error);
-});
+// = Database configuration ================================================
+	mongoose.connect('mongodb://localhost/mongoosescraper');
+	var db = mongoose.connection;
 
+	db.on('error', function (err) {
+		console.log('Mongoose Error: ', err);
+	});
+	db.once('open', function () {
+		console.log('Mongoose connection successful.');
+	});
 
-app.get("/", function(req, res) {
-  res.send("/scrape for scrape data and /all to see the scrape data");
-});
+// = Require Schemas ================================================================
+	var Note = require('./models/Note.js');
+	var Article = require('./models/Article.js');
 
-app.get("/all", function(req, res) {
+// = Routes ================================================================
+	app.get('/', function(req, res) {
+	  res.send(index.html); // sending the html file rather than rendering a handlebars file
+	});
 
-  db.screepdata.find({}, function(error, found) {
-
-    if (error) {
-      console.log(error);
-    }
-
-    else {
-      res.json(found);
-    }
-  });
-});
-
-app.get("/scrape", function(req, res) {
-  request("https://www.soriana.com/", function(error, response, html) {
-
-
+app.get('/scrape', function(req, res) {
+  request('http://www.echojs.com/', function(error, response, html) {
     var $ = cheerio.load(html);
+    $('article h2').each(function(i, element) {
 
-    $("div.carousel__item").each(function(i, element) {
-  
-      var price = $(element).children().find(".price").text();
-      price.replace("\n", "");
-      price.replace("\t", "");
-      var name = $(element).find(".carousel__item--name").text();
-  
+				var result = {};
 
-      db.screepdata.insert({"price": price,"name": name});
+				result.title = $(this).children('a').text();
+				result.link = $(this).children('a').attr('href');
+
+				var entry = new Article (result);
+
+				entry.save(function(err, doc) {
+				  if (err) {
+				    console.log(err);
+				  } else {
+				    console.log(doc);
+				  }
+				});
+
+
     });
-
   });
+  res.send("Scrape Complete");
 });
-app.listen(3000, function() {
-  console.log("App running on port 3000!");
+
+
+app.get('/articles', function(req, res){
+	Article.find({}, function(err, doc){
+		if (err){
+			console.log(err);
+		} else {
+			res.json(doc);
+		}
+	});
+});
+
+
+app.get('/articles/:id', function(req, res){
+	Article.findOne({'_id': req.params.id})
+	.populate('note')
+	.exec(function(err, doc){
+		if (err){
+			console.log(err);
+		} else {
+			res.json(doc);
+		}
+	});
+});
+
+
+app.post('/articles/:id', function(req, res){
+	var newNote = new Note(req.body);
+
+	newNote.save(function(err, doc){
+		if(err){
+			console.log(err);
+		} else {
+			Article.findOneAndUpdate({'_id': req.params.id}, {'note':doc._id})
+			.exec(function(err, doc){
+				if (err){
+					console.log(err);
+				} else {
+					res.send(doc);
+				}
+			});
+
+		}
+	});
+});
+
+
+
+
+
+
+
+
+app.listen(3008, function() {
+  console.log('App running on port 3008!');
 });
