@@ -1,4 +1,4 @@
-// = Requirements ================================================================
+
 	var express = require('express');
 	var app = express();
 	var bodyParser = require('body-parser');
@@ -7,15 +7,13 @@
 	var request = require('request');
 	var cheerio = require('cheerio');
 
-// = Middleware (pass everything through the logger first) ================================================
 	app.use(logger('dev'));
 	app.use(bodyParser.urlencoded({
 		extended: false
 	}));
-	app.use(express.static('public')); // (create a public folder and land there)
+	app.use(express.static('public'));
 
-// = Database configuration ================================================
-	mongoose.connect('mongodb://localhost/mongoosescraper');
+	mongoose.connect('mongodb://localhost:27017/mongo2020');
 	var db = mongoose.connection;
 
 	db.on('error', function (err) {
@@ -25,13 +23,11 @@
 		console.log('Mongoose connection successful.');
 	});
 
-// = Require Schemas ================================================================
 	var Note = require('./models/Note.js');
 	var Article = require('./models/Article.js');
 
-// = Routes ================================================================
 	app.get('/', function(req, res) {
-	  res.send(index.html); // sending the html file rather than rendering a handlebars file
+	  res.send(index.html);
 	});
 
 app.get('/scrape', function(req, res) {
@@ -106,12 +102,6 @@ app.post('/articles/:id', function(req, res){
 });
 
 
-
-
-
-
-
-
-app.listen(3008, function() {
-  console.log('App running on port 3008!');
+app.listen(3000, function() {
+  console.log('App running on port 3000');
 });
